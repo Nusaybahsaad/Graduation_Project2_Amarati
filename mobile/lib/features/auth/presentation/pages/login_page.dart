@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 import 'role_selection_page.dart';
+import '../../../dashboard/presentation/pages/main_layout.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,7 +16,16 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,16 +72,24 @@ class _LoginPageState extends State<LoginPage> {
 
                     // Email/Phone Input
                     TextFormField(
+                      controller: _emailController,
                       textAlign: TextAlign.right,
                       decoration: const InputDecoration(
                         hintText: 'رقم الجوال / البريد الإلكتروني',
                         prefixIcon: Icon(Icons.person_outline),
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'الرجاء إدخال البريد الإلكتروني أو رقم الجوال';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
                     // Password Input
                     TextFormField(
+                      controller: _passwordController,
                       textAlign: TextAlign.right,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
@@ -83,6 +105,12 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'الرجاء إدخال كلمة المرور';
+                        }
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 12),
@@ -98,13 +126,48 @@ class _LoginPageState extends State<LoginPage> {
                     ),
 
                     const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          // Login logic
+                    BlocConsumer<AuthBloc, AuthState>(
+                      listener: (context, state) {
+                        if (state is AuthError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(state.message),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else if (state is AuthAuthenticated) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم تسجيل الدخول بنجاح!'),
+                            ),
+                          );
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const MainLayout(),
+                            ),
+                          );
                         }
                       },
-                      child: const Text('تسجيل الدخول'),
+                      builder: (context, state) {
+                        if (state is AuthLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        return ElevatedButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              context.read<AuthBloc>().add(
+                                AuthLoginRequested(
+                                  email: _emailController.text.trim(),
+                                  password: _passwordController.text,
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text('تسجيل الدخول'),
+                        );
+                      },
                     ),
 
                     const SizedBox(height: 24),

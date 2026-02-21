@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_event.dart';
+import '../bloc/auth_state.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -12,7 +16,20 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,38 +70,63 @@ class _RegisterPageState extends State<RegisterPage> {
 
                 // Full Name
                 TextFormField(
+                  controller: _nameController,
                   textAlign: TextAlign.right,
                   decoration: const InputDecoration(
                     hintText: 'الاسم الكامل',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'الرجاء إدخال الاسم الكامل';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // Email
                 TextFormField(
+                  controller: _emailController,
                   textAlign: TextAlign.right,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     hintText: 'البريد الإلكتروني',
                     prefixIcon: Icon(Icons.email_rounded),
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'الرجاء إدخال البريد الإلكتروني';
+                    }
+                    if (!value.contains('@')) {
+                      return 'البريد الإلكتروني غير صالح';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // Phone
                 TextFormField(
+                  controller: _phoneController,
                   textAlign: TextAlign.right,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     hintText: 'رقم الجوال',
                     prefixIcon: Icon(Icons.phone_android_outlined),
                   ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'الرجاء إدخال رقم الجوال';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // Password
                 TextFormField(
+                  controller: _passwordController,
                   textAlign: TextAlign.right,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
@@ -99,16 +141,59 @@ class _RegisterPageState extends State<RegisterPage> {
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'الرجاء إدخال كلمة المرور';
+                    }
+                    if (value.length < 8) {
+                      return 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل';
+                    }
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 48),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      // Registration logic
+                BlocConsumer<AuthBloc, AuthState>(
+                  listener: (context, state) {
+                    if (state is AuthError) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(state.message),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    } else if (state is AuthRegisteredUnverified) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم إنشاء الحساب بنجاح!')),
+                      );
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
+                      );
                     }
                   },
-                  child: const Text('إنشاء الحساب'),
+                  builder: (context, state) {
+                    if (state is AuthLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          context.read<AuthBloc>().add(
+                            AuthRegisterRequested(
+                              email: _emailController.text.trim(),
+                              password: _passwordController.text,
+                              fullName: _nameController.text.trim(),
+                              phone: _phoneController.text.trim(),
+                              role: widget.role,
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('إنشاء الحساب'),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 24),
